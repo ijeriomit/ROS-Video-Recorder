@@ -8,13 +8,13 @@ from observe.image_manipulator import *
 from cv_bridge import CvBridge
 
 
-class Recorder(object):
+class VideoRecorder(object):
     '''Records Video files using a ROS topic as a source for the video stream'''
 
-    def __init__(self, camera_topic, folder_path="", image_height, image_width, add_time_stamps=false, recording_interval=60, fps="10" video_codec, file_prefix="", file_postfix="", timestamp_format="%Y-%m-%d_%H-%M-%S", file_type="mp4")
+    def __init__(self, camera_topic, folder_path="", image_height, image_width, add_time_stamps=false, video_length=60, fps="10", video_codec="avc1", file_prefix="", file_postfix="", timestamp_format="%Y-%m-%d_%H-%M-%S", file_type="mp4")
         self._camera_topic = camera_topic
         self._folder_path = folder_path
-        self._recording_interval = recording_interval
+        self._video_length = video_length
         self._file_prefix = file_prefix
         self._file_postfix = file_postfix
         self._timestamp_format = timestamp_format
@@ -35,6 +35,7 @@ class Recorder(object):
         self._image_buffer = []
         self._temp_buffer = []
         self._writing = False
+        self.path_delimeter = ""
 
     def __setup(self):
         '''Setups up Subcriber, Creates Directories, loads default image'''
@@ -42,7 +43,7 @@ class Recorder(object):
                          Image, self.new_image_callback, queue_size=10)
         
         self._trigger_interval_sub = rospy.Subcriber("trigger_interval", Bool, self.)
-        self._target_frame_number = self._fps * self._recording_interval * 60
+        self._target_frame_number = self._fps * self._video_length * 60
         self.default_image = numpy.zeros((self._image_width, self._image_height, 3))
         filename = self.create_file_name()
         
@@ -58,7 +59,7 @@ class Recorder(object):
 
 
     def create_file_name(self, timestamp):
-        filename = "~/{0}/{1}/{2}/{3}.{4}".format(self._folder_path, self._file_prefix, timestamp, self.file_postfix, self.file_type)
+        filename = "{0}{1}{2}_{3}_{4}.{5}".format(self._folder_path, self.path_delimeter, self._file_prefix, timestamp, self.file_postfix, self.file_type)
         return filename
 
     def start_new_video(self, filename):

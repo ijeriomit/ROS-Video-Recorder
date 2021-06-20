@@ -1,0 +1,6 @@
+<launch>
+    <!-- Tests in alphabetical order  time-limit="500.0" -->
+    <test test-name="file_system_monitor_test" type="test_file_system_monitor.py" pkg="observe" cwd="node" args="--cov"/>
+    <test test-name="folder_cleaner_test" type="test_folder_cleaner.py" pkg="observe" cwd="node" args="--cov"/>
+    <test test-name="video_recorder_test" type="test_video_recorder.py" pkg="observe" time-limit="660.0" cwd="node" args="--cov"/>
+</launch>

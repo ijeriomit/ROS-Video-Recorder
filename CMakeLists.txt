@@ -177,7 +177,10 @@ install(PROGRAMS
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
 # )
-
+## Mark files for installation.
+install(DIRECTORY launch recorded_videos images
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
 #   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
@@ -203,4 +206,8 @@ install(PROGRAMS
 # endif()
 
 ## Add folders to be run by python nosetests
-# catkin_add_nosetests(test)
+catkin_add_nosetests(test)
+# find_package(hmi_cmake REQUIRED)
+find_package(rostest REQUIRED)
+
+add_rostest(test/all_tests.test)

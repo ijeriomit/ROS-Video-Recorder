@@ -4,20 +4,20 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from std_msgs.msg import Bool
 import numpy
-from observe.image_manipulator import *
+from robot_video_recorder.image_manipulator import *
 from cv_bridge import CvBridge
 
 
 class VideoRecorder(object):
     '''Records Video files using a ROS topic as a source for the video stream'''
 
-    def __init__(self, camera_topic, folder_path="", image_height, image_width, add_time_stamps=false, video_length=60, fps="10", video_codec="avc1", file_prefix="", file_postfix="", timestamp_format="%Y-%m-%d_%H-%M-%S", file_type="mp4")
+    def __init__(self, camera_topic,image_height, image_width, add_time_stamps=False,  folder_path="", video_length=60, fps="10", video_codec="avc1", file_prefix="", file_postfix="", timestamp_format="%Y-%m-%d_%H-%M-%S", file_type="mp4"):
         self._camera_topic = camera_topic
         self._folder_path = folder_path
         self._video_length = video_length
         self._file_prefix = file_prefix
         self._file_postfix = file_postfix
-        self._timestamp_format = timestamp_format
+        self.timestamp_format = timestamp_format
         self._file_type = file_type
         self._video_codec = video_codec
         self._fps = fps
@@ -35,22 +35,23 @@ class VideoRecorder(object):
         self._image_buffer = []
         self._temp_buffer = []
         self._writing = False
-        self.path_delimeter = ""
+        self.path_delimeter = "/"
 
     def __setup(self):
-        '''Setups up Subcriber, Creates Directories, loads default image'''
+        '''Setups up Subscriber, Creates Directories, loads default image'''
         self._video_stream_sub = rospy.Subscriber(self._camera_topic,
                          Image, self.new_image_callback, queue_size=10)
         
-        self._trigger_interval_sub = rospy.Subcriber("trigger_interval", Bool, self.)
+        self._trigger_interval_sub = rospy.Subscriber("trigger_interval", Bool, self.interval_callback)
         self._target_frame_number = self._fps * self._video_length * 60
         self.default_image = numpy.zeros((self._image_width, self._image_height, 3))
-        filename = self.create_file_name()
+        timestamp = time.strftime(self.timestamp_format)
+        filename = self.create_file_name(timestamp)
         
         try:
-            create_directory(self.folder_path)
+            create_directory(self._folder_path)
         except os.error as e: 
-            raise RuntimeError("Cannot create folder an path {}. [Error]: {}".format(self.folder_path), e)
+            raise RuntimeError("Cannot create folder an path {}. [Error]: {}".format(self._folder_path), e)
         
         try:
             self._start_new_video(self, filename)
@@ -59,7 +60,7 @@ class VideoRecorder(object):
 
 
     def create_file_name(self, timestamp):
-        filename = "{0}{1}{2}_{3}_{4}.{5}".format(self._folder_path, self.path_delimeter, self._file_prefix, timestamp, self.file_postfix, self.file_type)
+        filename = "{0}{1}{2}_{3}_{4}.{5}".format(self._folder_path, self.path_delimeter, self._file_prefix, timestamp, self._file_postfix, self._file_type)
         return filename
 
     def start_new_video(self, filename):

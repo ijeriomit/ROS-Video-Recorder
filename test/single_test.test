@@ -1,3 +1,0 @@
-<launch>
-    <test test-name="video_recorder_test" type="test_video_recorder.py" pkg="observe" time-limit="660.0" cwd="node" args="--cov"/>
-</launch>

@@ -2,7 +2,7 @@
 """ Manipulates images to be used in Video Recorder"""
 
 import numpy as np
-from theia_msgs.msg import ZoneAlarm
+# from theia_msgs.msg import ZoneAlarm
 #pylint: disable=import-error
 import cv2
 
@@ -54,12 +54,12 @@ def resize_by_ratio(image, width=None, height=None):
 def border_image(orbimage, border_depth):
     """ adds a border which changes color based on the level of violation"""
     black = [0, 0, 0]
-    if orbimage.violation_level == ZoneAlarm.WARNING:
-        color = [0, 255, 255]
-    elif orbimage.violation_level == ZoneAlarm.VIOLATION:
-        color = [0, 0, 255]
-    else:
-        color = black
+    # if orbimage.violation_level == ZoneAlarm.WARNING:
+    #     color = [0, 255, 255]
+    # elif orbimage.violation_level == ZoneAlarm.VIOLATION:
+    #     color = [0, 0, 255]
+    # else:
+    color = black
     innerbordersize = int(border_depth * .75)
     outerbordersize = int(border_depth * .25)
     newimage = orbimage.image.copy()

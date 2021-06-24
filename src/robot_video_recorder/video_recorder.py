@@ -117,7 +117,7 @@ class VideoRecorder(object):
                     del frames[i]
                     
         except cv2.error as e:
-            rospy.logerror("An error occured when writing a video. {}".format(e))
+            rospy.logerr("An error occured when writing a video. {}".format(e))
         
         return frames
     

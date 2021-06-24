@@ -20,6 +20,7 @@ import threading
 from sensor_msgs.msg import Image
 from robot_video_recorder.video_recorder import VideoRecorder
 from robot_video_recorder.image_manipulator import *
+from robot_video_recorder.mock_camera_publisher import MockCamera
 
 
 
@@ -46,15 +47,15 @@ class TestVideoRecorder(unittest.TestCase):
             os.makedirs(cls.test_video_folder)
         
         rospy.init_node("frame_publisher")
-        cls.publisher_thread = threading.Thread(target=cls.run_camera, args=(camera_topic,))
-        cls.publisher_thread.start()
+        cls.mock_camera = MockCamera(fps=cls.fps, topic=camera_topic, image_path=os.path.join(pkg_path, 'images', 'test_image.png'))
+        cls.mock_camera.start()
 
     @classmethod
     def tearDownClass(cls): 
         # time.sleep(5)
         rospy.loginfo("shutting down ros HEHEHEHEHEH")
         rospy.signal_shutdown("test over")
-        cls.publisher_thread.join()
+        cls.mock_camera.stop_camera()
     
     def setUp(self):
         self.recorder.record()
@@ -97,23 +98,6 @@ class TestVideoRecorder(unittest.TestCase):
     def test_recorded_video_has_min_number_of_frames(self):
         pass
 
-    
-    
-    @classmethod
-    def run_camera(cls, topic):
-        if cls.fps == 0:
-            return
-        seed(cls.max_delay)
-        sleep_rate = 1/abs(cls.fps) + random()
-        frame_publisher = rospy.Publisher(topic, Image, latch=True, queue_size=10) 
-        bridge = CvBridge()
-        while not rospy.is_shutdown():
-            frame_publisher.publish(bridge.cv2_to_imgmsg(cls.frame_image, encoding='bgr8'))
-            cls.sent_images += 1
-            rospy.sleep(sleep_rate)
-
-def publish_frame(publisher, image):
-    rospy.loginfo("publisher: ", self.frame_publisher)
     
 if __name__ == "__main__":
     rostest.rosrun("robot_video_recorder", 'test_video_recorder', TestVideoRecorder)

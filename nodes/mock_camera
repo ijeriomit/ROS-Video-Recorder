@@ -1,0 +1,15 @@
+
+#!/usr/bin/env python2
+
+import rospy
+import signal
+from sensor_msgs.msg import Image
+from robot_video_recorder.mock_camera import MockCamera
+
+
+if __name__ == '__main__':
+    rospy.init_node('mock_camera')
+    mock_camera = MockCamera(fps=4, topic="/camera_input)
+    signal.signal(signal.SIGINT, mock_camera.stop_camera)
+    signal.signal(signal.SIGTERM, mock_camera.stop_camera)
+    mock_camera.start()

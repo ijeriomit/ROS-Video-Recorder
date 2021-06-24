@@ -88,6 +88,17 @@ class TestVideoRecorder(unittest.TestCase):
         delimeter = "/"
         self.assertEqual(filename, "{0}{1}{2}_{3}_{4}.{5}".format(self.test_video_folder, delimeter, self.file_prefix, timestamp, self.file_postfix, self.file_type))
     
+    def test_create_directory(self):
+        pass
+
+    def test_video_recorded(self):
+        pass
+
+    def test_recorded_video_has_min_number_of_frames(self):
+        pass
+
+    
+    
     @classmethod
     def run_camera(cls, topic):
         if cls.fps == 0:

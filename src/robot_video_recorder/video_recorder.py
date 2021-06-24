@@ -1,5 +1,8 @@
 import rospy
 import cv2
+import os
+import time
+import copy
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from std_msgs.msg import Bool
@@ -22,9 +25,8 @@ class VideoRecorder(object):
         self._video_codec = video_codec
         self._fps = fps
         self._video_stream_sub = None
-        self._trigger_interval_sub = None
-        self._image_height = image_height
-        self._image_width = image_width
+        self._target_image_height = image_height
+        self._target_image_width= image_width
         self.default_image = None
         self._video_writer = None
         self._current_filename = ""
@@ -32,80 +34,114 @@ class VideoRecorder(object):
         self.bridge = CvBridge()
         self._target_frame_number = 0
         self._real_frame_number = 0
-        self._image_buffer = []
-        self._temp_buffer = []
-        self._writing = False
+        self._frame_buffer = []
         self.path_delimeter = "/"
+        self._add_footage_timer = None
+        self._end_video_timer = None
+        self._recording = False
+        self.__setup()
 
     def __setup(self):
         '''Setups up Subscriber, Creates Directories, loads default image'''
-        self._video_stream_sub = rospy.Subscriber(self._camera_topic,
-                         Image, self.new_image_callback, queue_size=10)
-        
-        self._trigger_interval_sub = rospy.Subscriber("trigger_interval", Bool, self.interval_callback)
         self._target_frame_number = self._fps * self._video_length * 60
-        self.default_image = numpy.zeros((self._image_width, self._image_height, 3))
-        timestamp = time.strftime(self.timestamp_format)
-        filename = self.create_file_name(timestamp)
-        
+        self.default_image = numpy.zeros((self._target_image_width, self._target_image_height, 3))
         try:
             create_directory(self._folder_path)
         except os.error as e: 
             raise RuntimeError("Cannot create folder an path {}. [Error]: {}".format(self._folder_path), e)
         
+      
+    def record(self):
+        self._recording = True
         try:
-            self._start_new_video(self, filename)
+            self.start_new_video()
         except cv2.error as e:
             raise RuntimeError("{}".format(e))
+        
+        self._video_stream_sub = rospy.Subscriber(self._camera_topic,
+                         Image, self.new_image_callback, queue_size=10)
+        self._add_footage_timer = rospy.Timer(rospy.Duration(1), self.add_second_of_footage)
+        self._end_video_timer = rospy.Timer(rospy.Duration(self._video_length), self.end_video)
 
+    def stop_recording(self):
+        self._add_footage_timer.shutdown()
+        self._end_video_timer.shutdown()
+        self._video_stream_sub.unregister()
+        self._recording = False
+        self.end_video(None)
+        del self._frame_buffer
+        self._frame_buffer = []
 
     def create_file_name(self, timestamp):
         filename = "{0}{1}{2}_{3}_{4}.{5}".format(self._folder_path, self.path_delimeter, self._file_prefix, timestamp, self._file_postfix, self._file_type)
         return filename
 
-    def start_new_video(self, filename):
+    def end_video(self, event):
+        if(self._real_frame_number < self._target_frame_number):
+            self.pad_video(self._target_frame_number - self._real_frame_number)
+        self.reset_frame_number()
+        if self._recording is True:
+            self.start_new_video()
+        else:
+            self._video_writer.release()
+
+    def reset_frame_number(self):
+        self._real_frame_number = 0
+
+    def start_new_video(self):
+        timestamp = time.strftime(self.timestamp_format, time.gmtime(rospy.Time.now().secs))
+        filename = self.create_file_name(timestamp)
         try: 
-            if(self._video_writer.is_opened()):
+            if self._video_writer is not None and self._video_writer.isOpened():
                 self._video_writer.release()
-            self._video_writer = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*self._codec), self._fps, (self._image_width, self._image_height), True)
+            self._video_writer = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*self._video_codec), self._fps, (self._target_image_width, self._target_image_height), True)
         except cv2.error as e:
             raise cv2.error("An error occured with video writer {}".format(e))
 
+    def add_second_of_footage(self, event):
+        if(len(self._frame_buffer) < self._fps):
+            frames = self.get_frame_buffer()
+            del self._frame_buffer
+            for i in range(0, self._fps - len(frames)):
+                frames.append(self.default_image)
+            leftover_frames = self.write_frames_to_video(frames)
+            self._frame_buffer = leftover_frames + self._frame_buffer
+
+    def write_frames_to_video(self, frames):
+        try:
+            num_of_frames = len(frames)
+            if(self._video_writer.isOpened()):
+                for i in range(0, num_of_frames):
+                    self._video_writer.write(frames[i])
+                    self._real_frame_number += 1
+                    del frames[i]
+                    
+        except cv2.error as e:
+            rospy.logerror("An error occured when writing a video. {}".format(e))
+        
+        return frames
+    
     def new_image_callback(self, msg):
         image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
         timestamp = time.strftime(self.timestamp_format, time.gmtime(msg.header.stamp.secs))
-        if msg.height != (self._image_height or self._image_width): 
-            image = image_size_correction(image, self._image_width, self._image_height)
+        if msg.height != self._target_image_height or msg.width != self._target_image_width: 
+            image = image_size_correction(image, self._target_image_width, self._target_image_height)
         if self._add_time_stamps: 
             image = add_text_to_image(image, timestamp)
-        self._image_buffer.append(image)
-        # self.write_image_to_video(image)
+        self._frame_buffer.append(image)
         self._real_frame_number += 1 
     
     def pad_video(self, num_pad_frames):
+        pad_frames = []
         for i in range(0, num_pad_frames):
-            self.write_image_to_video(self.default_image)
+            pad_frames.append(self.default_image)
+        self.write_frames_to_video(pad_frames)
 
-    def interval_callback(self, data):
-        if(self._real_frame_number < self._target_frame_number):
-            self.pad_video(self._target_frame_number - self._real_frame_number)
-        self._video_writer.release()
-        timestamp = time.strftime(self.timestamp_format)
-        filename = self.create_file_name(timestamp)
-        self.start_new_video(filename)
+    def get_frame_buffer(self):
+        return copy.deepcopy(self._frame_buffer)
     
-    def write_image_to_video(self, event):
-        images = copy.deepcopy(self._image_buffer)
-        del self._image_buffer[0:len(images)-1]
-        num_of_images = len(images)
-        try:
-            if(self._video_writer.is_opened()):
-                for i in range(0, self._fps - num_of_images):
-                    images.append(self.default_image)
-                for i in range(0, num_of_images):
-                    self._video_writer.write(image)
-        except cv2.error as e:
-            print("An error occured when writing a video. {}".format(e))
+    def get_real_frame_number(self):
+        return self._real_frame_number
     
 def create_directory(path):
     '''creates a directory if it doesnt already exist'''

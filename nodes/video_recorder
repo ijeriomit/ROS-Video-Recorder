@@ -1,0 +1,44 @@
+
+#!/usr/bin/env python2
+
+import rospy
+import rospkg
+import os
+import signal
+from sensor_msgs.msg import Image
+from robot_video_recorder.video_recorder import VideoRecorder
+
+def shutdown(signum, frame):
+    recorder.stop_recording()
+    rospy.signal_shutdown("Node: {} has been shutdown".format(rospy.get_name()))
+
+if __name__ == '__main__':
+    rospy.init_node('video_recorder')
+    global recorder 
+
+    topic = rospy.get_param('~camera_topic', "/camera_input")
+    image_height = rospy.get_param('~image_height', 720)
+    image_width = rospy.get_param('~image_width', 1280)
+    add_time_stamps = rospy.get_param('~add_time_stamps', True)
+    folder_path = rospy.get_param('~folder_path', os.path.join(rospkg.RosPack().get_path('robot_video_recorder'), 'videos'))
+    video_length = rospy.get_param('~video_length', 60)
+    fps = rospy.get_param('~fps', 4)
+    video_codec = rospy.get_param('~video_codec', 'MP4V')
+    file_prefix = rospy.get_param('~file_prefix', '')
+    file_postfix = rospy.get_param('~file_postfix', '')
+    timestamp_format = rospy.get_param('~timestamp_format', "%Y-%m-%d_%H-%M-%S")
+    file_type = rospy.get_param('~file_type', 'mp4')
+
+    recorder = VideoRecorder(camera_topic=topic, folder_path=folder_path, 
+                            image_height=image_height, image_width=image_width, 
+                            fps=fps, add_time_stamps=add_time_stamps, 
+                            video_length=video_length, 
+                            file_prefix=file_prefix, 
+                            file_postfix = file_postfix, 
+                            file_type = file_type, 
+                            video_codec= video_codec, 
+                            timestamp_format = timestamp_format)
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
+    recorder.record()
+    rospy.spin()

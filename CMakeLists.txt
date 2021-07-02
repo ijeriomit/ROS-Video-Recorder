@@ -160,7 +160,8 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
-  nodes/hello
+  nodes/mock_camera
+  nodes/video_recorder
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
@@ -178,7 +179,7 @@ install(PROGRAMS
 #   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
 # )
 ## Mark files for installation.
-install(DIRECTORY launch recorded_videos images
+install(DIRECTORY launch videos images
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 ## Mark cpp header files for installation

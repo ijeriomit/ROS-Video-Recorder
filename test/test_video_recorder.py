@@ -12,6 +12,7 @@ import rostest
 import subprocess
 import os 
 import re
+import shutil
 from random import seed
 from random import random
 import cv2
@@ -33,20 +34,21 @@ class TestVideoRecorder(unittest.TestCase):
     def setUpClass(cls):
         camera_topic = "/camera_input"
         cls.test_video_folder = os.path.join(rospkg.RosPack().get_path('robot_video_recorder'), "videos")
-       
+        rospy.init_node("test_node")
         pkg_path = rospkg.RosPack().get_path('robot_video_recorder')
-        cls.frame_image = cv2.imread(os.path.join(pkg_path, 'images', 'test_image.png'))
+        frame_image = cv2.imread(os.path.join(pkg_path, 'images', 'test_image.png'))
         cls.file_prefix = 'test'
         cls.file_postfix = ''
         cls.file_type = 'mp4'
+        cls.codec = 'MP4V'
         cls.fps = 4
         cls.max_delay = 0.1
         cls.sent_images = 0
-        cls.recorder = VideoRecorder(camera_topic=camera_topic, folder_path= cls.test_video_folder, image_height=cls.frame_image.shape[0], image_width=cls.frame_image.shape[1], fps=cls.fps, add_time_stamps=True, video_length=60, file_prefix=cls.file_prefix, file_postfix = cls.file_postfix)
+        cls.recorder = VideoRecorder(camera_topic=camera_topic, folder_path= cls.test_video_folder, image_height=frame_image.shape[0], image_width=frame_image.shape[1], fps=cls.fps, add_time_stamps=True, video_length=60, file_prefix=cls.file_prefix, file_postfix = cls.file_postfix, file_type = cls.file_type, video_codec= cls.codec)
         if not os.path.exists(cls.test_video_folder):
             os.makedirs(cls.test_video_folder)
+        clean_folder(cls.test_video_folder)
         
-        rospy.init_node("frame_publisher")
         cls.mock_camera = MockCamera(fps=cls.fps, topic=camera_topic, image_path=os.path.join(pkg_path, 'images', 'test_image.png'))
         cls.mock_camera.start()
 
@@ -56,6 +58,7 @@ class TestVideoRecorder(unittest.TestCase):
         rospy.loginfo("shutting down ros HEHEHEHEHEH")
         rospy.signal_shutdown("test over")
         cls.mock_camera.stop_camera()
+        cls.recorder.stop_recording()
     
     def setUp(self):
         self.recorder.record()
@@ -81,12 +84,12 @@ class TestVideoRecorder(unittest.TestCase):
     def test_num_of_images_recieved_equals_num_of_images_sent(self):
         num_images_sent = self.sent_images
         rospy.sleep(1)
-        self.assertEqual(self.recorder.get_real_frame_number(), self.recorder.fps)
+        self.assertEqual(self.recorder.get_real_frame_number(), self.fps)
 
     def test_create_file_name(self):
         timestamp = time.strftime(self.recorder.timestamp_format)
         filename = self.recorder.create_file_name(timestamp)
-        delimeter = "/"
+        delimeter = "\\"
         self.assertEqual(filename, "{0}{1}{2}_{3}_{4}.{5}".format(self.test_video_folder, delimeter, self.file_prefix, timestamp, self.file_postfix, self.file_type))
     
     def test_create_directory(self):
@@ -98,6 +101,18 @@ class TestVideoRecorder(unittest.TestCase):
     def test_recorded_video_has_min_number_of_frames(self):
         pass
 
-    
+def clean_folder(folder):
+    """ Delete the files in the directory """
+    if(os.path.exists(folder) and os.path.isdir(folder)):
+        for f in os.listdir(folder):
+            f = os.path.join(folder, f)
+            if os.path.isfile(f):
+                rospy.loginfo("Cleaning file {}".format(f))
+                os.remove(f)
+            elif os.path.isdir(f):
+                rospy.loginfo("Cleaning folder {}".format(f))
+                shutil.rmtree(f)
+
 if __name__ == "__main__":
     rostest.rosrun("robot_video_recorder", 'test_video_recorder', TestVideoRecorder)
+   

@@ -1,0 +1,51 @@
+<launch>
+    <arg name="camera_topic"/>
+    <arg name="image_height"/>
+    <arg name="image_width"/>
+    <arg name="add_time_stamps"/>
+    <arg name="folder_path"/>
+    <arg name="video_length"/>
+    <arg name="fps"/>
+    <arg name="video_codec"/>
+    <arg name="file_prefix"/>
+    <arg name="file_postfix"/>
+    <arg name="timestamp_format"/>
+    <arg name="file_type"/>
+    <arg name="mock_camera", default="False"/>
+    <arg name="image_path"/>
+  
+    <node pkg="robot_video_recorder" type="video_recorder" name="video_recorder" output="screen">
+        <rosparam subst_value="true">
+                camera_topic: $(arg camera_topic)
+                # single camera feed height
+                image_height: $(arg image_height)
+                # single camera feed width
+                image_width:  $(arg add_time_stamps)
+                # Directory to save recorded videos
+                folder_path: $(arg folder_path)
+                # length of each recorded video
+                video_length: $(arg video_length)
+                # The frame rate for recording videos (or 0 to disable)
+                fps: $(arg fps)
+                # codec used to encode video
+                video_codec: $(arg video_codec)
+                # prefix of each file name
+                file_prefix: $(arg file_prefix)
+                # postfix of each file name
+                file_postfix: $(arg file_postfix)
+                # format of each timestamps 
+                timestamp_format: $(arg timestamp_format)
+                # the type of video file outputted by the recorder
+                
+        </rosparam>
+    </node>
+
+    <node pkg="robot_video_recorder" type="mock_camera" name="mock_camera" output="screen">
+        <rosparam subst_value="true">
+                fps: $(arg fps)
+                topic: $(arg camera_topic)
+                image_path: $(arg image_path)
+        </rosparam>
+    </node>
+
+</launch>

@@ -14,7 +14,7 @@ from cv_bridge import CvBridge
 class VideoRecorder(object):
     '''Records Video files using a ROS topic as a source for the video stream'''
 
-    def __init__(self, camera_topic,image_height, image_width, add_time_stamps=False,  folder_path="", video_length=60, fps="10", video_codec="avc1", file_prefix="", file_postfix="", timestamp_format="%Y-%m-%d_%H-%M-%S", file_type="mp4"):
+    def __init__(self, camera_topic,image_height, image_width, add_time_stamps=False,  folder_path="", video_length=60, fps="10", video_codec="MP4V", file_prefix=None, file_postfix=None, timestamp_format="%Y-%m-%d_%H-%M-%S", file_type="mp4"):
         self._camera_topic = camera_topic
         self._folder_path = folder_path
         self._video_length = video_length
@@ -35,7 +35,7 @@ class VideoRecorder(object):
         self._target_frame_number = 0
         self._real_frame_number = 0
         self._frame_buffer = []
-        self.path_delimeter = "/"
+        self.path_delimeter = "\\"
         self._add_footage_timer = None
         self._end_video_timer = None
         self._recording = False
@@ -69,14 +69,22 @@ class VideoRecorder(object):
         self._video_stream_sub.unregister()
         self._recording = False
         self.end_video(None)
-        del self._frame_buffer
-        self._frame_buffer = []
+        self._frame_buffer[:] = []
 
     def create_file_name(self, timestamp):
-        filename = "{0}{1}{2}_{3}_{4}.{5}".format(self._folder_path, self.path_delimeter, self._file_prefix, timestamp, self._file_postfix, self._file_type)
+        filename = ""
+        if not self._file_prefix and self._file_postfix:
+            filename = "{0}{1}{2}_{3}.{4}".format(self._folder_path, self.path_delimeter, timestamp, self._file_postfix, self._file_type)
+        elif self._file_prefix and not self._file_postfix:
+            filename = "{0}{1}{2}_{3}.{4}".format(self._folder_path, self.path_delimeter, self._file_prefix, timestamp, self._file_type)
+        elif not self._file_prefix and not self._file_postfix:
+            filename = "{0}{1}{2}.{3}".format(self._folder_path, self.path_delimeter, self._file_prefix, timestamp, self._file_postfix, self._file_type)
+        elif self._file_prefix and self._file_postfix:
+            filename = "{0}{1}{2}_{3}_{4}.{5}".format(self._folder_path, self.path_delimeter, self._file_prefix, timestamp, self._file_postfix, self._file_type)
         return filename
 
     def end_video(self, event):
+        print("end video")
         if(self._real_frame_number < self._target_frame_number):
             self.pad_video(self._target_frame_number - self._real_frame_number)
         self.reset_frame_number()
@@ -89,6 +97,7 @@ class VideoRecorder(object):
         self._real_frame_number = 0
 
     def start_new_video(self):
+        print("start new video")
         timestamp = time.strftime(self.timestamp_format, time.gmtime(rospy.Time.now().secs))
         filename = self.create_file_name(timestamp)
         try: 
@@ -99,22 +108,24 @@ class VideoRecorder(object):
             raise cv2.error("An error occured with video writer {}".format(e))
 
     def add_second_of_footage(self, event):
-        if(len(self._frame_buffer) < self._fps):
-            frames = self.get_frame_buffer()
-            del self._frame_buffer
-            for i in range(0, self._fps - len(frames)):
-                frames.append(self.default_image)
-            leftover_frames = self.write_frames_to_video(frames)
-            self._frame_buffer = leftover_frames + self._frame_buffer
+        frames = self.get_frame_buffer()
+        num_pad_frames = self._fps - len(frames)
+        self._frame_buffer[:] = []
+        leftover_frames = self.write_frames_to_video(frames)
+        self.pad_video(num_pad_frames)
+        self._frame_buffer = leftover_frames + self._frame_buffer
+    
 
     def write_frames_to_video(self, frames):
+        written_frames = 0
         try:
-            num_of_frames = len(frames)
             if(self._video_writer.isOpened()):
-                for i in range(0, num_of_frames):
+                for i in range(0, len(frames)):
                     self._video_writer.write(frames[i])
+                    print("Wrote image to video")
+                    written_frames += 1
                     self._real_frame_number += 1
-                    del frames[i]
+                del frames[0:written_frames]
                     
         except cv2.error as e:
             rospy.logerr("An error occured when writing a video. {}".format(e))
